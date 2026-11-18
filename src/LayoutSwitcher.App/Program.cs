@@ -13,6 +13,8 @@ internal static class Program
             return SelfTest.Run(reportPath);
         if (args is ["--e2e", var e2eReportPath])
             return E2eCheck.Run(e2eReportPath);
+        if (args is ["--docs-images", var imagesDirectory])
+            return DocsImages.Run(imagesDirectory);
 
         using var mutex = new Mutex(initiallyOwned: true, @"Local\LayoutSwitcher.SingleInstance", out var createdNew);
         if (!createdNew)

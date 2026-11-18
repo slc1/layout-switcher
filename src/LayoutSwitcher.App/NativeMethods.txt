@@ -38,3 +38,4 @@ EVENT_SYSTEM_FOREGROUND
 SetForegroundWindow
 GetAsyncKeyState
 GetClassName
+PrintWindow

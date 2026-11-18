@@ -1,0 +1,90 @@
+# LayoutSwitcher
+
+Typed `ghbdsn` when you meant `привіт`? Press **Pause**.
+
+LayoutSwitcher is a small Windows tray app that fixes text typed in the wrong keyboard layout,
+Ukrainian ↔ English, and switches the layout for you. It runs only when you press a hotkey and never guesses
+on its own.
+
+![Tray icons: EN, UA, disabled, unavailable](docs/images/tray-icons.png)
+
+## Features
+
+| Hotkey | What it does |
+|---|---|
+| `Pause` | Converts the **last word** you typed and switches the layout. Press again to undo. |
+| `Ctrl+Pause` | Converts **all text typed** since you last clicked, pressed Enter or changed windows. Press again to undo. |
+| `Shift+Pause` | Converts the **selected text**. Your clipboard is put back afterwards. |
+| `Win+F8` | Turns the app on or off. |
+
+- Keeps capitals and CapsLock: `Ghbdsn` → `Привіт`, `GHBDSN` → `ПРИВІТ`.
+- Treats `, . ; ' [ ]` as letters when they are Ukrainian letters (`б ю ж є х ї`), so `ghbdsn,` converts as one word.
+- The tray icon shows the current layout: `EN` or `UA`. It is grey when the app is off, and shows `!` in windows where
+  it cannot work.
+- You can set excluded programs, such as games or remote desktop, where the app does nothing.
+- It never logs or stores what you type.
+
+![Settings window](docs/images/settings.png)
+
+## Install
+
+1. Download a zip from [Releases](https://github.com/slc1/layout-switcher/releases/latest):
+   - `LayoutSwitcher-<version>-win-x64.zip` — tiny; needs the
+     [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
+   - `LayoutSwitcher-<version>-win-x64-self-contained.zip` — larger; needs nothing else.
+2. Unzip anywhere and run `LayoutSwitcher.exe`.
+
+You need Windows 10 or 11 with both the Ukrainian and an English keyboard layout installed.
+"Start with Windows" is on by default. Double-click the tray icon to open Settings and change it, or to change hotkeys.
+
+Settings are stored in `%AppData%\LayoutSwitcher\settings.json`. Logging is off by default. To turn it on, set
+`"logLevel": "Info"` in that file; the log goes to `%LocalAppData%\LayoutSwitcher\logs`.
+
+## Limitations
+
+- **Windows running as administrator.** Windows does not let a normal app see or type keys in them, so the app
+  shows `!` in the tray instead of converting.
+- **Consoles.** `Shift+Pause` is off in console windows, where `Ctrl+C` interrupts the running program.
+- **Some apps ignore the way the text is retyped**, such as some games and remote desktop clients. Add them to the
+  excluded programs.
+- **AltGr characters** (for example `ґ` on the standard Ukrainian layout) cannot be converted.
+- **The exe is not code-signed**, so SmartScreen may warn the first time you run it.
+
+## Build from source
+
+You need the .NET 10 SDK.
+
+```
+dotnet build LayoutSwitcher.slnx
+dotnet test tests/LayoutSwitcher.Core.Tests
+dotnet run --project src/LayoutSwitcher.App
+```
+
+The app also has diagnostic modes:
+
+| Command | What it does |
+|---|---|
+| `LayoutSwitcher.exe --self-test report.txt` | Builds the layout tables from the installed layouts and converts sample text. No UI, no hooks. |
+| `LayoutSwitcher.exe --e2e report.txt` | Opens a test window and drives the real hook, typing and clipboard in it (~10 s). Do not type meanwhile, keep CapsLock off, and do not run it while the tray app is running. It stops at once if the window loses focus. |
+| `LayoutSwitcher.exe --docs-images docs/images` | Regenerates the images in this README. |
+
+## How it works
+
+- A low-level keyboard hook records the **keys** you press, not the characters.
+- On a hotkey, the app erases what you typed and types the same keys as they would come out in the other layout.
+  Then it switches the layout of the window you are typing in.
+- Selected text goes through the clipboard: copy, convert, paste, then restore what was there before.
+
+The project has two parts:
+
+- **`src/LayoutSwitcher.Core`** is pure logic with no Windows calls, covered by unit tests: layout tables, word
+  boundaries, the typed-key buffer, conversion and undo, hotkeys and settings.
+- **`src/LayoutSwitcher.App`** is a thin WinForms and Win32 layer: hooks, `SendInput`, layout switching,
+  clipboard, tray and settings.
+
+More detail is in [`docs/design.md`](docs/design.md).
+
+## Acknowledgements
+
+Inspired by [SimpleSwitcher](https://github.com/Aegel5/SimpleSwitcher). LayoutSwitcher is a separate implementation
+with a smaller scope.
