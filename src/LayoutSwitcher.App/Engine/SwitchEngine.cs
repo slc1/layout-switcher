@@ -35,7 +35,18 @@ internal sealed class SwitchEngine(
         while (await events.WaitToReadAsync(cancel).ConfigureAwait(false))
         {
             while (events.TryRead(out var e))
-                Handle(e);
+            {
+                try
+                {
+                    Handle(e);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // One bad event must not stop the loop, or the app silently stops working.
+                    _buffer.Clear();
+                    Logging.AppLog.Error($"Engine failed on {e.Kind} event", ex);
+                }
+            }
         }
     }
 
