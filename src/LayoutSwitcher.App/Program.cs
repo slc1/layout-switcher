@@ -11,6 +11,8 @@ internal static class Program
     {
         if (args is ["--self-test", var reportPath])
             return SelfTest.Run(reportPath);
+        if (args is ["--e2e", var e2eReportPath])
+            return E2eCheck.Run(e2eReportPath);
 
         using var mutex = new Mutex(initiallyOwned: true, @"Local\LayoutSwitcher.SingleInstance", out var createdNew);
         if (!createdNew)
