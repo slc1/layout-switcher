@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/LayoutSwitcher.App/LayoutSwitcher.App.csproj" />
     <Project Path="src/LayoutSwitcher.Core/LayoutSwitcher.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
