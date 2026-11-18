@@ -189,6 +189,23 @@ internal static class E2eCheck
         {
             var actual = (string)form.Invoke(() => box.Text);
             Check(name, actual == expected, actual);
+            if (actual != expected)
+                report.AppendLine($"      foreground now: {DescribeForeground()}");
+        }
+
+        /// <summary>Window class and process of the foreground window — never its text.</summary>
+        private unsafe string DescribeForeground()
+        {
+            var hwnd = PInvoke.GetForegroundWindow();
+            if (hwnd == (Windows.Win32.Foundation.HWND)form.Handle)
+                return "test window";
+            Span<char> name = stackalloc char[128];
+            int length;
+            fixed (char* p = name)
+                length = PInvoke.GetClassName(hwnd, p, name.Length);
+            var pid = Win32.ProcessInfo.ForegroundProcessId();
+            var exe = Path.GetFileName(Win32.ProcessInfo.ImagePath(pid) ?? "?");
+            return $"class={name[..Math.Max(0, length)]} exe={exe}";
         }
 
         private void ExpectLayout(LayoutId expected)
