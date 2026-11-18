@@ -237,8 +237,11 @@ Unknown keys are preserved on save. A malformed file falls back to defaults and 
 
 ## 11. Known limitations (v1)
 
-- **Elevated windows**: a non-elevated app cannot inject input into an elevated window (UIPI). The hotkey
-  does nothing there. The app detects this case and shows a tray notification once.
+- **Elevated windows**: UIPI keeps a non-elevated app out of an elevated window both ways — its low-level
+  hook never sees keys bound for that window (so the hotkey cannot even be detected), and it could not inject
+  input there anyway. Verified on Windows 11. The foreground-change event still arrives, so while an elevated
+  window is focused the tray icon shows a grey `!` with a tooltip, and a notification appears once per session.
+  Working there needs the app itself to run elevated (v2 backlog).
 - **Console windows** (`conhost`, Windows Terminal): the layout reported for the focused thread can be
   stale. Verify during implementation; fallback is emulating the system layout-switch shortcut.
 - Apps that ignore `KEYEVENTF_UNICODE` (some games, RDP/VNC clients) → excluded programs.

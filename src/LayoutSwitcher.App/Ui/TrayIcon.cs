@@ -8,6 +8,7 @@ internal sealed class TrayIcon : IDisposable
     private readonly ToolStripMenuItem _enabledItem;
     private LayoutId? _layout;
     private bool _enabled = true;
+    private bool _unavailable;
     private Icon? _icon;
 
     public event Action? ToggleEnabledRequested;
@@ -29,11 +30,12 @@ internal sealed class TrayIcon : IDisposable
         _notifyIcon.Visible = true;
     }
 
-    public void Update(LayoutId? layout, bool enabled)
+    /// <param name="unavailable">The foreground window is elevated; Windows keeps our hook from seeing its keys.</param>
+    public void Update(LayoutId? layout, bool enabled, bool unavailable = false)
     {
-        if (layout == _layout && enabled == _enabled)
+        if (layout == _layout && enabled == _enabled && unavailable == _unavailable)
             return;
-        (_layout, _enabled) = (layout, enabled);
+        (_layout, _enabled, _unavailable) = (layout, enabled, unavailable);
         Redraw();
     }
 
@@ -43,12 +45,17 @@ internal sealed class TrayIcon : IDisposable
     private void Redraw()
     {
         var old = _icon;
-        _icon = LayoutIcon.Create(_layout, _enabled, SystemInformation.SmallIconSize);
+        _icon = LayoutIcon.Create(_layout, _enabled, _unavailable, SystemInformation.SmallIconSize);
         _notifyIcon.Icon = _icon;
         old?.Dispose();
 
         _enabledItem.Checked = _enabled;
-        _notifyIcon.Text = _enabled ? "LayoutSwitcher" : "LayoutSwitcher (disabled)";
+        _notifyIcon.Text = (_enabled, _unavailable) switch
+        {
+            (false, _) => "LayoutSwitcher (disabled)",
+            (_, true) => "LayoutSwitcher: not available in administrator windows",
+            _ => "LayoutSwitcher",
+        };
     }
 
     public void Dispose()

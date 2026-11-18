@@ -48,8 +48,23 @@ internal sealed class AppHost : ApplicationContext, IEngineHost
         _selection = new SelectionConverter(OnUiThread, layouts.Pair);
         _services = AppServices.Start(layouts, this, _settings);
         ReportInvalidHotkeys();
-        _layoutTimer.Tick += (_, _) => _tray.Update(_services.Layouts.GetFocusedLayout(), _settings.Enabled);
+        _layoutTimer.Tick += (_, _) => RefreshTray();
         _layoutTimer.Start();
+    }
+
+    /// <summary>
+    /// Windows does not deliver keys bound for an elevated window to our (non-elevated) hook, so the app can
+    /// neither convert there nor react to the hotkey. The foreground-change event still arrives, which is
+    /// how we know to show it.
+    /// </summary>
+    private void RefreshTray()
+    {
+        if (_services is null)
+            return;
+        var unavailable = _services.Hook.Foreground.Elevated;
+        _tray.Update(_services.Layouts.GetFocusedLayout(), _settings.Enabled, unavailable);
+        if (unavailable && _settings.Enabled)
+            WarnElevated();
     }
 
     public void ToggleEnabled()
@@ -64,17 +79,23 @@ internal sealed class AppHost : ApplicationContext, IEngineHost
         _store.Save(_settings);
         if (_services is not null)
             _services.Hook.Enabled = _settings.Enabled;
-        _tray.Update(_services?.Layouts.GetFocusedLayout(), _settings.Enabled);
+        RefreshTray();
     }
 
+    /// <summary>Once per session. Callable from any thread.</summary>
     public void WarnElevated()
     {
+        if (_ui.InvokeRequired)
+        {
+            _ui.BeginInvoke(WarnElevated);
+            return;
+        }
         if (_warnedElevated)
             return;
         _warnedElevated = true;
-        _ui.BeginInvoke(() => _tray.ShowBalloon("LayoutSwitcher",
-            "This window runs as administrator. Windows does not let LayoutSwitcher type into it.",
-            ToolTipIcon.Info));
+        _tray.ShowBalloon("LayoutSwitcher",
+            "This window runs as administrator. Windows does not let LayoutSwitcher work in it.",
+            ToolTipIcon.Info);
     }
 
     public LayoutId? ConvertSelection(HeldModifiers held) => _selection?.Convert(held);

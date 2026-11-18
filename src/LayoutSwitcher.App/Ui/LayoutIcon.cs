@@ -4,16 +4,20 @@ using LayoutSwitcher.Core;
 
 namespace LayoutSwitcher.App.Ui;
 
-/// <summary>Tray icons with the layout name as text: EN on graphite, UA in blue and yellow.</summary>
+/// <summary>
+/// Tray icons with the layout name as text: EN on graphite, UA in blue and yellow,
+/// grey when disabled, grey "!" when the app cannot work in the foreground (elevated) window.
+/// </summary>
 internal static class LayoutIcon
 {
-    public static Icon Create(LayoutId? layout, bool enabled, Size size)
+    public static Icon Create(LayoutId? layout, bool enabled, bool unavailable, Size size)
     {
-        var (text, back, fore) = (layout, enabled) switch
+        var (text, back, fore) = (layout, enabled, unavailable) switch
         {
-            (_, false) => (Label(layout), Color.FromArgb(150, 150, 150), Color.White),
-            (LayoutId.Ua, _) => ("UA", Color.FromArgb(0x00, 0x57, 0xB7), Color.FromArgb(0xFF, 0xD7, 0x00)),
-            (LayoutId.En, _) => ("EN", Color.FromArgb(0x33, 0x33, 0x33), Color.White),
+            (_, false, _) => (Label(layout), Color.FromArgb(150, 150, 150), Color.White),
+            (_, _, true) => ("!", Color.FromArgb(150, 150, 150), Color.White),
+            (LayoutId.Ua, _, _) => ("UA", Color.FromArgb(0x00, 0x57, 0xB7), Color.FromArgb(0xFF, 0xD7, 0x00)),
+            (LayoutId.En, _, _) => ("EN", Color.FromArgb(0x33, 0x33, 0x33), Color.White),
             _ => ("??", Color.FromArgb(150, 150, 150), Color.White),
         };
 
