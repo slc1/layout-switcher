@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LayoutSwitcher.Core/LayoutSwitcher.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LayoutSwitcher.Core.Tests/LayoutSwitcher.Core.Tests.csproj" />
+  </Folder>
+</Solution>
