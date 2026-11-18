@@ -80,14 +80,18 @@ internal static class E2eCheck
     private sealed class Script(Form form, TextBox box, LayoutService layouts, StringBuilder report)
     {
         private bool _ok = true;
+        private bool _focused;
+        private Windows.Win32.Foundation.HWND _window;
 
         public bool Run()
         {
+            _window = (Windows.Win32.Foundation.HWND)(nint)form.Invoke(() => form.Handle);
             if (!Focus())
             {
                 report.AppendLine("FAIL: could not bring the test window to the foreground");
                 return false;
             }
+            _focused = true;
 
             Start(LayoutId.En);
             Type("ghbdsn", LayoutId.En);
@@ -142,7 +146,7 @@ internal static class E2eCheck
                     box.Focus();
                 });
                 Thread.Sleep(100);
-                if (PInvoke.GetForegroundWindow() == (Windows.Win32.Foundation.HWND)form.Handle)
+                if (PInvoke.GetForegroundWindow() == _window)
                     return true;
             }
             return false;
@@ -197,7 +201,7 @@ internal static class E2eCheck
         private unsafe string DescribeForeground()
         {
             var hwnd = PInvoke.GetForegroundWindow();
-            if (hwnd == (Windows.Win32.Foundation.HWND)form.Handle)
+            if (hwnd == _window)
                 return "test window";
             Span<char> name = stackalloc char[128];
             int length;
@@ -220,15 +224,21 @@ internal static class E2eCheck
             report.AppendLine($"{(pass ? "PASS" : "FAIL")}: {name} -> '{actual}'");
         }
 
-        private static void Tap(ushort vk, ushort scan)
+        private void Tap(ushort vk, ushort scan)
         {
             Send(vk, scan, up: false);
             Send(vk, scan, up: true);
         }
 
-        /// <summary>Untagged, so our hook treats it as the user typing.</summary>
-        private static void Send(ushort vk, ushort scan, bool up)
+        /// <summary>
+        /// Untagged, so our hook treats it as the user typing. Once the test window has focus, any focus change
+        /// aborts the run: otherwise the keystrokes (and Ctrl+C/Ctrl+V) land in whatever app took focus.
+        /// </summary>
+        private void Send(ushort vk, ushort scan, bool up)
         {
+            if (_focused && PInvoke.GetForegroundWindow() != _window)
+                throw new InvalidOperationException($"ABORTED: focus moved to {DescribeForeground()}");
+
             INPUT[] input =
             [
                 new()
