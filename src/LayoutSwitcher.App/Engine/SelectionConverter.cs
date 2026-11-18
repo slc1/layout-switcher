@@ -1,6 +1,7 @@
 using LayoutSwitcher.App.Clipboard;
 using LayoutSwitcher.App.Input;
 using LayoutSwitcher.Core;
+using LayoutSwitcher.Core.Input;
 using Windows.Win32;
 
 namespace LayoutSwitcher.App.Engine;
@@ -20,14 +21,18 @@ internal sealed class SelectionConverter(Func<Func<object?>, object?> onUiThread
 
     public LayoutId? Convert(HeldModifiers held)
     {
+        // In a console Ctrl+C is "interrupt", not "copy".
+        if (IsConsole(PInvoke.GetForegroundWindow()))
+            return null;
+
         Ui(() => _clipboard.Backup());
+        var afterBackup = PInvoke.GetClipboardSequenceNumber();
         try
         {
             InputSender.ReleaseModifiers(held);
 
-            var before = PInvoke.GetClipboardSequenceNumber();
             InputSender.SendCtrl(VkC);
-            if (!WaitForClipboardChange(before))
+            if (!WaitForClipboardChange(afterBackup))
                 return null; // nothing selected
 
             var text = (string?)onUiThread(() => _clipboard.ReadText());
@@ -41,8 +46,22 @@ internal sealed class SelectionConverter(Func<Func<object?>, object?> onUiThread
         }
         finally
         {
-            Ui(() => _clipboard.Restore());
+            // Restoring rewrites the clipboard with only the formats we saved, so skip it when nothing changed.
+            if (PInvoke.GetClipboardSequenceNumber() == afterBackup)
+                Ui(() => _clipboard.Discard());
+            else
+                Ui(() => _clipboard.Restore());
         }
+    }
+
+    private static unsafe bool IsConsole(Windows.Win32.Foundation.HWND hwnd)
+    {
+        Span<char> name = stackalloc char[64];
+        int length;
+        fixed (char* p = name)
+            length = PInvoke.GetClassName(hwnd, p, name.Length);
+        var className = name[..Math.Max(0, length)];
+        return className.SequenceEqual("ConsoleWindowClass") || className.SequenceEqual("CASCADIA_HOSTING_WINDOW_CLASS");
     }
 
     private static bool WaitForClipboardChange(uint before)

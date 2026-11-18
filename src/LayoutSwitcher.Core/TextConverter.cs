@@ -39,7 +39,8 @@ public static class TextConverter
         target = source.Other();
         result = "";
 
-        if (text.Length is 0 or > MaxSelectionLength)
+        // A trailing line break means the app copied a whole line because nothing was selected.
+        if (text.Length is 0 or > MaxSelectionLength || text.EndsWith('\n'))
             return false;
 
         result = Convert(text, pair[source], pair[target]);

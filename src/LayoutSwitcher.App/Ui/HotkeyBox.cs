@@ -24,7 +24,11 @@ internal sealed class HotkeyBox : TextBox
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        // Tab, arrows and Enter would otherwise move focus before OnKeyDown sees them.
+        // Tab and Esc keep their dialog meaning (next field, cancel); they cannot be hotkeys anyway.
+        if (keyData is Keys.Tab or (Keys.Tab | Keys.Shift) or Keys.Escape)
+            return base.ProcessCmdKey(ref msg, keyData);
+
+        // Arrows and Enter would otherwise move focus or press Save before OnKeyDown sees them.
         OnKeyDown(new KeyEventArgs(keyData));
         return true;
     }
@@ -64,9 +68,7 @@ internal sealed class HotkeyBox : TextBox
             return;
         }
 
-        // A plain letter or digit would swallow normal typing.
-        var typingKey = char.IsAsciiLetterOrDigit((char)vk);
-        if (typingKey && (modifiers & (Modifiers.Ctrl | Modifiers.Alt | Modifiers.Win)) == 0)
+        if (parsed.BlocksTyping)
         {
             Rejected?.Invoke("A letter or digit needs Ctrl, Alt or Win, or it would block normal typing.");
             return;

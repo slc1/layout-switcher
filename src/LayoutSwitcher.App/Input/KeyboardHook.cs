@@ -23,15 +23,10 @@ internal sealed record ForegroundState(bool Excluded, bool Elevated)
 /// </summary>
 internal sealed class KeyboardHook : IDisposable
 {
-    private static readonly (ushort Vk, HeldModifiers Flag)[] ModifierVks =
-    [
-        (VirtualKeys.LShift, HeldModifiers.LShift), (VirtualKeys.RShift, HeldModifiers.RShift),
-        (VirtualKeys.LControl, HeldModifiers.LCtrl), (VirtualKeys.RControl, HeldModifiers.RCtrl),
-        (VirtualKeys.LMenu, HeldModifiers.LAlt), (VirtualKeys.RMenu, HeldModifiers.RAlt),
-        (VirtualKeys.LWin, HeldModifiers.LWin), (VirtualKeys.RWin, HeldModifiers.RWin),
-    ];
+    private static readonly Func<ushort, bool> IsPhysicallyDown = IsAsyncDown;
 
     private readonly ChannelWriter<InputEvent> _events;
+    private readonly ModifierTracker _modifiers = new();
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _started = new();
 
@@ -41,8 +36,8 @@ internal sealed class KeyboardHook : IDisposable
     private readonly WINEVENTPROC _foregroundProc;
 
     private uint _threadId;
-    private HeldModifiers _held;
     private ushort _swallowedVk;
+    private volatile ForegroundState _foreground = ForegroundState.Unknown;
     private Exception? _startError;
 
     public KeyboardHook(ChannelWriter<InputEvent> events)
@@ -61,7 +56,7 @@ internal sealed class KeyboardHook : IDisposable
     /// <summary>Set while the settings window captures a hotkey, so our hotkeys reach it.</summary>
     public volatile bool Suspended = false;
 
-    public ForegroundState Foreground { get; private set; } = ForegroundState.Unknown;
+    public ForegroundState Foreground => _foreground;
 
     public void Start()
     {
@@ -72,7 +67,7 @@ internal sealed class KeyboardHook : IDisposable
     }
 
     /// <summary>Re-reads the foreground process, e.g. after the exclusion list changed.</summary>
-    public void RefreshForeground() => Foreground = ReadForeground();
+    public void RefreshForeground() => _foreground = ReadForeground();
 
     private void Run()
     {
@@ -90,7 +85,7 @@ internal sealed class KeyboardHook : IDisposable
             return;
         }
 
-        Foreground = ReadForeground();
+        _foreground = ReadForeground();
         _started.Set();
 
         while (PInvoke.GetMessage(out var msg, HWND.Null, 0, 0) > 0)
@@ -107,29 +102,45 @@ internal sealed class KeyboardHook : IDisposable
             return PInvoke.CallNextHookEx(null, code, wParam, lParam);
 
         var down = wParam.Value is PInvoke.WM_KEYDOWN or PInvoke.WM_SYSKEYDOWN;
+        var rawVk = (ushort)data->vkCode;
         var scan = (ushort)data->scanCode;
-        var vk = Hotkey.NormalizeVk((ushort)data->vkCode, scan);
-        TrackModifier(vk, down);
+        var vk = Hotkey.NormalizeVk(rawVk, scan);
 
-        if (Suspended || Foreground.Excluded)
+        if (VirtualKeys.IsModifier(vk))
+        {
+            _modifiers.Track(vk, down);
+            return PInvoke.CallNextHookEx(null, code, wParam, lParam);
+        }
+
+        // Releases on the secure desktop (Win+L, Ctrl+Alt+Del, UAC) never reach us. The async state does not
+        // yet include the event being processed, which is why this runs only for non-modifier keys.
+        _modifiers.Reconcile(IsPhysicallyDown);
+
+        if (Suspended || _foreground.Excluded)
             return PInvoke.CallNextHookEx(null, code, wParam, lParam);
 
         if (vk == _swallowedVk && _swallowedVk != 0)
         {
-            // Key-up or auto-repeat of a hotkey we already handled: keep it from the app.
+            // Async state "down" on a key-down means auto-repeat; "up" means a fresh press whose
+            // previous release we never saw, so it is handled as a new press below.
             if (!down)
+            {
                 _swallowedVk = 0;
-            return (LRESULT)1;
+                return (LRESULT)1;
+            }
+            if (IsAsyncDown(rawVk))
+                return (LRESULT)1;
+            _swallowedVk = 0;
         }
 
         if (!down)
             return PInvoke.CallNextHookEx(null, code, wParam, lParam);
 
-        var modifiers = ToModifiers(_held);
+        var modifiers = _modifiers.Modifiers;
         if (Hotkeys.TryMatch(modifiers, vk, Enabled, out var action))
         {
             _swallowedVk = vk;
-            _events.TryWrite(new InputEvent(InputKind.Hotkey, Action: action, Held: _held));
+            _events.TryWrite(new InputEvent(InputKind.Hotkey, Action: action, Held: _modifiers.Held));
             return (LRESULT)1;
         }
 
@@ -152,7 +163,7 @@ internal sealed class KeyboardHook : IDisposable
     private void ForegroundProc(HWINEVENTHOOK hook, uint @event, HWND hwnd, int idObject, int idChild,
         uint eventThread, uint eventTime)
     {
-        Foreground = ReadForeground();
+        _foreground = ReadForeground();
         _events.TryWrite(new InputEvent(InputKind.Reset));
     }
 
@@ -167,31 +178,7 @@ internal sealed class KeyboardHook : IDisposable
             Elevated: !Environment.IsPrivilegedProcess && ProcessInfo.IsElevated(pid));
     }
 
-    private void TrackModifier(ushort vk, bool down)
-    {
-        foreach (var (modifierVk, flag) in ModifierVks)
-        {
-            if (modifierVk == vk)
-            {
-                _held = down ? _held | flag : _held & ~flag;
-                return;
-            }
-        }
-    }
-
-    private static Modifiers ToModifiers(HeldModifiers held)
-    {
-        var result = Modifiers.None;
-        if ((held & (HeldModifiers.LShift | HeldModifiers.RShift)) != 0)
-            result |= Modifiers.Shift;
-        if ((held & (HeldModifiers.LCtrl | HeldModifiers.RCtrl)) != 0)
-            result |= Modifiers.Ctrl;
-        if ((held & (HeldModifiers.LAlt | HeldModifiers.RAlt)) != 0)
-            result |= Modifiers.Alt;
-        if ((held & (HeldModifiers.LWin | HeldModifiers.RWin)) != 0)
-            result |= Modifiers.Win;
-        return result;
-    }
+    private static bool IsAsyncDown(ushort vk) => (PInvoke.GetAsyncKeyState(vk) & 0x8000) != 0;
 
     public void Dispose()
     {

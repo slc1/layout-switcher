@@ -36,6 +36,11 @@ public readonly record struct Hotkey(Modifiers Modifiers, ushort Vk)
         return true;
     }
 
+    /// <summary>A letter or digit without Ctrl/Alt/Win would swallow normal typing.</summary>
+    public bool BlocksTyping =>
+        Vk is >= '0' and <= '9' or >= 'A' and <= 'Z'
+        && (Modifiers & (Modifiers.Ctrl | Modifiers.Alt | Modifiers.Win)) == 0;
+
     /// <summary>With Ctrl held, Windows reports Pause as VK_CANCEL (scan 0x46); map it back.</summary>
     public static ushort NormalizeVk(ushort vk, ushort scanCode) =>
         vk == VirtualKeys.Cancel && scanCode == 0x46 ? VirtualKeys.Pause : vk;

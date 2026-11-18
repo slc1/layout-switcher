@@ -56,4 +56,21 @@ public class HotkeyTests
         Assert.Equal(VirtualKeys.Cancel, Hotkey.NormalizeVk(VirtualKeys.Cancel, 0x00));
         Assert.Equal((ushort)'Q', Hotkey.NormalizeVk('Q', 0x10));
     }
+
+    [Theory]
+    [InlineData("A", true)]
+    [InlineData("5", true)]
+    [InlineData("Shift+Z", true)]
+    [InlineData("Ctrl+A", false)]
+    [InlineData("Alt+5", false)]
+    [InlineData("Win+Z", false)]
+    [InlineData("F1", false)]
+    [InlineData("F11", false)]
+    [InlineData("Pause", false)]
+    [InlineData("Space", false)]
+    public void BlocksTyping_only_for_letters_and_digits_without_ctrl_alt_win(string text, bool expected)
+    {
+        Assert.True(Hotkey.TryParse(text, out var hotkey));
+        Assert.Equal(expected, hotkey.BlocksTyping);
+    }
 }

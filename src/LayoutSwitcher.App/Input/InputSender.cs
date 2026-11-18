@@ -28,7 +28,7 @@ internal static class InputSender
             return;
 
         var inputs = new List<INPUT>();
-        if ((held & (HeldModifiers.LAlt | HeldModifiers.RAlt | HeldModifiers.LWin | HeldModifiers.RWin)) != 0)
+        if (ModifierTracker.NeedsMenuSuppression(held))
         {
             inputs.Add(Key(MenuSuppressorVk, up: false));
             inputs.Add(Key(MenuSuppressorVk, up: true));
@@ -40,6 +40,12 @@ internal static class InputSender
         }
         Send(inputs);
     }
+
+    /// <summary>
+    /// For a swallowed Alt/Win hotkey: without another key between Win down and Win up, Windows opens Start
+    /// (Alt: the menu bar) when the user releases the modifier.
+    /// </summary>
+    public static void SuppressMenu() => Send([Key(MenuSuppressorVk, up: false), Key(MenuSuppressorVk, up: true)]);
 
     /// <summary>Backspaces, then the text as Unicode, in one atomic batch.</summary>
     public static void Replace(int eraseCount, string text)

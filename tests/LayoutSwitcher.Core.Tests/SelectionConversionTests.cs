@@ -53,4 +53,19 @@ public class SelectionConversionTests
         Assert.False(Convert(new string('a', TextConverter.MaxSelectionLength + 1)).ok);
         Assert.Equal(2000, TextConverter.MaxSelectionLength);
     }
+
+    [Theory]
+    [InlineData("ghbdsn\n")]
+    [InlineData("ghbdsn\r\n")]
+    public void Text_ending_with_a_line_break_is_rejected(string text)
+    {
+        // VS Code and others copy the whole line on Ctrl+C with no selection; pasting it back would duplicate the line.
+        Assert.False(Convert(text).ok);
+    }
+
+    [Fact]
+    public void Line_breaks_inside_the_selection_are_fine()
+    {
+        Assert.Equal((true, "привіт\nсвіт", LayoutId.Ua), Convert("ghbdsn\ncdsn"));
+    }
 }

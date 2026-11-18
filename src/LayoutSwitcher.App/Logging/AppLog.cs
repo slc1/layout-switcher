@@ -37,9 +37,9 @@ internal static class AppLog
                 File.AppendAllText(file, $"{DateTime.Now:HH:mm:ss.fff} {level,-5} {message}{Environment.NewLine}");
             }
         }
-        catch (IOException)
+        catch (Exception)
         {
-            // Logging must never take the app down.
+            // Logging must never take the app down: it is called from the engine's own error handler.
         }
     }
 }

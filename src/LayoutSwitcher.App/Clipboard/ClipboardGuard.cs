@@ -50,7 +50,13 @@ internal sealed class ClipboardGuard
         Write(data);
     }
 
-    /// <summary>Puts the snapshot back and drops our reference to it.</summary>
+    /// <summary>The clipboard was never touched: keep the original, with all its formats.</summary>
+    public void Discard() => _snapshot = null;
+
+    /// <summary>
+    /// Puts the snapshot back and drops our reference to it. Formats outside <see cref="SavedFormats"/>
+    /// (e.g. Excel cell data) are lost for good.
+    /// </summary>
     public void Restore()
     {
         if (_snapshot is null)

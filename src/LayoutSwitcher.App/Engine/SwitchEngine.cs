@@ -102,6 +102,10 @@ internal sealed class SwitchEngine(
 
     private void HandleHotkey(InputEvent e)
     {
+        // Must run for every Alt/Win hotkey, including ones that end up doing nothing.
+        if (ModifierTracker.NeedsMenuSuppression(e.Held))
+            InputSender.SuppressMenu();
+
         if (e.Action == HotkeyAction.ToggleEnabled)
         {
             _buffer.Clear();

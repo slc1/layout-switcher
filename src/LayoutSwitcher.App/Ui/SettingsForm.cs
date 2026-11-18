@@ -15,6 +15,8 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _autostart = new() { Text = "Start with Windows", AutoSize = true };
     private readonly Label _status = new() { AutoSize = true, ForeColor = Color.Firebrick, MaximumSize = new Size(440, 0) };
     private readonly Settings _settings;
+    private bool _active;
+    private bool _capturing;
 
     public event Action<Settings>? Saved;
 
@@ -84,10 +86,25 @@ internal sealed class SettingsForm : Form
         foreach (var box in new[] { _lastWord, _selection, _allTyped, _toggle })
         {
             box.Rejected += message => _status.Text = message;
-            box.Enter += (_, _) => CapturingChanged?.Invoke(true);
-            box.Leave += (_, _) => CapturingChanged?.Invoke(false);
+            box.Enter += (_, _) => UpdateCapturing();
+            box.Leave += (_, _) => UpdateCapturing();
         }
-        FormClosed += (_, _) => CapturingChanged?.Invoke(false);
+        Activated += (_, _) =>
+        {
+            _active = true;
+            UpdateCapturing();
+        };
+        Deactivate += (_, _) =>
+        {
+            _active = false;
+            UpdateCapturing();
+        };
+        FormClosed += (_, _) =>
+        {
+            _active = false;
+            UpdateCapturing();
+        };
+        Shown += (_, _) => save.Focus(); // opening the window must not start capturing
 
         add.Click += (_, _) => AddExclusion(_newExclusion.Text);
         browse.Click += (_, _) => BrowseExclusion();
@@ -105,6 +122,19 @@ internal sealed class SettingsForm : Form
         _extraChars.Text = settings.ExtraWordChars;
         _excluded.Items.AddRange([.. settings.ExcludedPrograms]);
         _autostart.Checked = settings.Autostart;
+    }
+
+    /// <summary>
+    /// Our hotkeys are off only while this window is active and a hotkey box has focus; a box keeps focus
+    /// when the user switches to another app, so focus alone would leave the app disabled.
+    /// </summary>
+    private void UpdateCapturing()
+    {
+        var capturing = _active && ActiveControl is HotkeyBox;
+        if (capturing == _capturing)
+            return;
+        _capturing = capturing;
+        CapturingChanged?.Invoke(capturing);
     }
 
     private void AddExclusion(string entry)

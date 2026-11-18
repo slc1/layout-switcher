@@ -19,21 +19,6 @@ internal enum HotkeyAction : byte
     ToggleEnabled,
 }
 
-/// <summary>Physical modifier keys currently down, as tracked by the hook.</summary>
-[Flags]
-internal enum HeldModifiers : byte
-{
-    None = 0,
-    LShift = 1,
-    RShift = 2,
-    LCtrl = 4,
-    RCtrl = 8,
-    LAlt = 16,
-    RAlt = 32,
-    LWin = 64,
-    RWin = 128,
-}
-
 /// <summary>A struct so the hook callback can post it without allocating.</summary>
 internal readonly record struct InputEvent(
     InputKind Kind,

@@ -6,6 +6,7 @@ using LayoutSwitcher.App.Startup;
 using LayoutSwitcher.App.Ui;
 using LayoutSwitcher.Core;
 using LayoutSwitcher.Core.Config;
+using LayoutSwitcher.Core.Input;
 
 namespace LayoutSwitcher.App;
 

@@ -36,3 +36,5 @@ WM_MBUTTONDOWN
 WM_QUIT
 EVENT_SYSTEM_FOREGROUND
 SetForegroundWindow
+GetAsyncKeyState
+GetClassName
