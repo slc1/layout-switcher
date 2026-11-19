@@ -1,0 +1,100 @@
+# Builds the Windows and macOS downloads and attaches them to the GitHub release for the tag.
+#
+# - Pushing a tag `vX.Y.Z` builds everything and creates a draft release if there is none yet,
+#   so the notes can be written before publishing.
+# - Running it by hand with a tag adds only the files that release does not have yet, e.g. the macOS zip
+#   for a release that was published with the Windows zips only.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build, e.g. v0.2.0
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet test tests/LayoutSwitcher.Core.Tests -c Release
+      - name: Publish
+        shell: pwsh
+        run: |
+          $version = "$env:TAG".TrimStart('v')
+          dotnet publish src/LayoutSwitcher.App -c Release -r win-x64 --self-contained false `
+            -p:PublishSingleFile=true -o out/fd
+          dotnet publish src/LayoutSwitcher.App -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out/sc
+          New-Item -ItemType Directory dist | Out-Null
+          Compress-Archive out/fd/LayoutSwitcher.exe "dist/LayoutSwitcher-$version-win-x64.zip"
+          Compress-Archive out/sc/LayoutSwitcher.exe "dist/LayoutSwitcher-$version-win-x64-self-contained.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.zip
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet workload install macos
+      - run: dotnet test tests/LayoutSwitcher.Core.Tests -c Release
+      - name: Publish
+        run: |
+          version="${TAG#v}"
+          dotnet publish src/LayoutSwitcher.Mac -c Release -p:CreatePackage=false
+          mkdir dist
+          # ditto keeps the bundle's symlinks and code signature intact; plain zip does not.
+          ditto -c -k --keepParent src/LayoutSwitcher.Mac/bin/Release/net10.0-macos/LayoutSwitcher.app \
+            "dist/LayoutSwitcher-$version-macos.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*.zip
+
+  release:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Attach to the release
+        run: |
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --draft --title "$TAG" --notes "Write the release notes, then publish."
+          fi
+          existing=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          for file in dist/*.zip; do
+            if grep -qxF "$(basename "$file")" <<< "$existing"; then
+              echo "Keeping $(basename "$file"), already attached"
+            else
+              gh release upload "$TAG" "$file"
+            fi
+          done

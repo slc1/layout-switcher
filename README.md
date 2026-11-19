@@ -45,13 +45,18 @@ Settings are stored in `%AppData%\LayoutSwitcher\settings.json`. Logging is off 
 
 ## Install on macOS
 
-Build the app from source (see below) and copy `LayoutSwitcher.app` to `/Applications`. You need macOS 13 or
-later with the Ukrainian and an English input source (ABC, U.S. or British) in System Settings → Keyboard →
-Input Sources.
+1. Download `LayoutSwitcher-<version>-macos.zip` from
+   [Releases](https://github.com/slc1/layout-switcher/releases/latest). It runs on both Apple silicon and Intel Macs.
+2. Unzip it and move `LayoutSwitcher.app` to `/Applications`.
+3. The app is not notarized, so macOS blocks the first start. Open it once, then click **Open Anyway** in
+   System Settings → Privacy & Security. Or run `xattr -dr com.apple.quarantine /Applications/LayoutSwitcher.app`.
+
+You need macOS 13 or later with the Ukrainian and an English input source (ABC, U.S. or British) in System
+Settings → Keyboard → Input Sources.
 
 On first start macOS asks to allow LayoutSwitcher in System Settings → Privacy & Security → **Accessibility**.
-Until you do, the menu bar shows `!`; the app starts working as soon as access is granted. A rebuilt, unsigned app
-counts as a new app, so remove the old entry from the list and allow it again.
+Until you do, the menu bar shows `!`; the app starts working as soon as access is granted. Each new version, or
+your own build, counts as a new app, so remove the old entry from the list and allow it again.
 
 "Start at login" is on by default (a LaunchAgent in `~/Library/LaunchAgents`). Settings are stored in
 `~/Library/Application Support/LayoutSwitcher/settings.json`, logs go to `~/Library/Logs/LayoutSwitcher`.
@@ -68,7 +73,7 @@ Excluded apps are listed by app name (`Safari.app`), bundle id (`com.apple.Safar
 - **The exe is not code-signed**, so SmartScreen may warn the first time you run it.
 - **macOS: password fields and secure input.** While secure input is on, macOS hides keys from every app, so the
   menu bar shows `!` and the hotkeys do nothing.
-- **macOS: the app is not notarized.** Open it with right-click → Open the first time.
+- **macOS: the app is not notarized.** The first start needs **Open Anyway** in Privacy & Security (see Install).
 
 ## Build from source
 
@@ -88,6 +93,10 @@ dotnet publish src/LayoutSwitcher.Mac -c Release   # universal LayoutSwitcher.ap
 ```
 
 `LayoutSwitcher.app/Contents/MacOS/LayoutSwitcher --self-test report.txt` checks the layout tables on a Mac.
+
+Releases are built by `.github/workflows/release.yml`. Pushing a `v*` tag builds the Windows and macOS zips and
+attaches them to the release, creating a draft if there is none. Running the workflow by hand with an existing
+tag adds only the zips that release is missing.
 
 The app also has diagnostic modes:
 

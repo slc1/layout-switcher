@@ -11,8 +11,9 @@ internal static class Program
     private static int Main(string[] args)
     {
         NSApplication.Init();
+        // The runtime moves the working directory into the app bundle; resolve against the caller's shell instead.
         if (args is ["--self-test", var reportPath])
-            return SelfTest.Run(reportPath);
+            return SelfTest.Run(Path.GetFullPath(reportPath, Environment.GetEnvironmentVariable("PWD") ?? Environment.CurrentDirectory));
 
         using var mutex = new Mutex(initiallyOwned: true, "LayoutSwitcher.SingleInstance", out var createdNew);
         if (!createdNew)
