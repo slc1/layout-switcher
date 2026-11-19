@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>LayoutSwitcher</AssemblyName>
+    <RootNamespace>LayoutSwitcher.Mac</RootNamespace>
+    <ApplicationId>com.slc.layoutswitcher</ApplicationId>
+    <ApplicationTitle>LayoutSwitcher</ApplicationTitle>
+    <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
+    <ApplicationVersion>$(Version)</ApplicationVersion>
+
+    <!--
+      The workload pins one exact Xcode version; the app uses no API newer than macOS 13. The static registrar
+      needs that exact SDK's headers, the dynamic one does not.
+    -->
+    <ValidateXcodeVersion>false</ValidateXcodeVersion>
+    <Registrar>dynamic</Registrar>
+
+    <!-- Trims only framework assemblies; ours keep everything AppKit may call through the dynamic registrar. -->
+    <TrimMode Condition="'$(Configuration)' == 'Release'">partial</TrimMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LayoutSwitcher.Core\LayoutSwitcher.Core.csproj" />
+  </ItemGroup>
+
+</Project>

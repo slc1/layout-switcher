@@ -23,7 +23,7 @@ public sealed class ExclusionList
     public bool IsExcluded(string exePath)
     {
         var path = Normalize(exePath);
-        return _paths.Contains(path) || _names.Contains(Path.GetFileName(path));
+        return _paths.Contains(path) || _names.Contains(path[(path.LastIndexOf('\\') + 1)..]);
     }
 
     private static string Normalize(string path) => path.Replace('/', '\\');

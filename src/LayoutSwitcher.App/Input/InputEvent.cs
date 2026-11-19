@@ -11,14 +11,6 @@ internal enum InputKind : byte
     Reset,
 }
 
-internal enum HotkeyAction : byte
-{
-    ConvertLastWord,
-    ConvertSelection,
-    ConvertAllTyped,
-    ToggleEnabled,
-}
-
 /// <summary>A struct so the hook callback can post it without allocating.</summary>
 internal readonly record struct InputEvent(
     InputKind Kind,

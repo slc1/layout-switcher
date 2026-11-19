@@ -13,6 +13,8 @@ public class HotkeyTests
     [InlineData("Alt+1", Modifiers.Alt, (ushort)'1')]
     [InlineData("CapsLock", Modifiers.None, VirtualKeys.CapsLock)]
     [InlineData("F24", Modifiers.None, (ushort)0x87)]
+    [InlineData("Ctrl+Option+W", Modifiers.Ctrl | Modifiers.Alt, (ushort)'W')]
+    [InlineData("cmd+shift+space", Modifiers.Win | Modifiers.Shift, VirtualKeys.Space)]
     public void Parses(string text, Modifiers modifiers, ushort vk)
     {
         Assert.True(Hotkey.TryParse(text, out var hotkey));
@@ -47,6 +49,18 @@ public class HotkeyTests
     {
         Assert.True(Hotkey.TryParse(text, out var hotkey));
         Assert.Equal(text, hotkey.ToString());
+    }
+
+    [Theory]
+    [InlineData("Ctrl+Alt+W", "Ctrl+Option+W")]
+    [InlineData("Win+Shift+F8", "Shift+Cmd+F8")]
+    [InlineData("Space", "Space")]
+    public void ToMacString_uses_mac_modifier_names(string text, string expected)
+    {
+        Assert.True(Hotkey.TryParse(text, out var hotkey));
+        Assert.Equal(expected, hotkey.ToMacString());
+        Assert.True(Hotkey.TryParse(expected, out var parsed));
+        Assert.Equal(hotkey, parsed);
     }
 
     [Fact]

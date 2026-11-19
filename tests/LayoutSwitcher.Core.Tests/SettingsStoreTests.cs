@@ -4,6 +4,7 @@ namespace LayoutSwitcher.Core.Tests;
 
 public sealed class SettingsStoreTests : IDisposable
 {
+    private static readonly PlatformDefaults D = PlatformDefaults.Current;
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "ls-tests-" + Guid.NewGuid().ToString("N"));
     private string SettingsPath => Path.Combine(_dir, "sub", "settings.json");
 
@@ -20,12 +21,12 @@ public sealed class SettingsStoreTests : IDisposable
 
         Assert.True(settings.Enabled);
         Assert.True(settings.Autostart);
-        Assert.Equal("Pause", settings.Hotkeys.ConvertLastWord);
-        Assert.Equal("Shift+Pause", settings.Hotkeys.ConvertSelection);
-        Assert.Equal("Ctrl+Pause", settings.Hotkeys.ConvertAllTyped);
-        Assert.Equal("Win+F8", settings.Hotkeys.ToggleEnabled);
+        Assert.Equal(D.ConvertLastWord, settings.Hotkeys.ConvertLastWord);
+        Assert.Equal(D.ConvertSelection, settings.Hotkeys.ConvertSelection);
+        Assert.Equal(D.ConvertAllTyped, settings.Hotkeys.ConvertAllTyped);
+        Assert.Equal(D.ToggleEnabled, settings.Hotkeys.ToggleEnabled);
         Assert.Equal("-_", settings.ExtraWordChars);
-        Assert.Equal(["mstsc.exe"], settings.ExcludedPrograms);
+        Assert.Equal(D.ExcludedPrograms, settings.ExcludedPrograms);
         Assert.Equal("None", settings.LogLevel);
         Assert.False(File.Exists(SettingsPath));
     }
@@ -44,7 +45,7 @@ public sealed class SettingsStoreTests : IDisposable
 
         Assert.False(loaded.Enabled);
         Assert.Equal("ScrollLock", loaded.Hotkeys.ConvertLastWord);
-        Assert.Equal(["mstsc.exe", "game.exe"], loaded.ExcludedPrograms);
+        Assert.Equal([.. D.ExcludedPrograms, "game.exe"], loaded.ExcludedPrograms);
     }
 
     [Fact]
@@ -81,7 +82,7 @@ public sealed class SettingsStoreTests : IDisposable
         var settings = new SettingsStore(SettingsPath).Load();
 
         Assert.Equal("Win+F9", settings.Hotkeys.ToggleEnabled);
-        Assert.Equal("Pause", settings.Hotkeys.ConvertLastWord);
+        Assert.Equal(D.ConvertLastWord, settings.Hotkeys.ConvertLastWord);
     }
 
     [Fact]
@@ -120,7 +121,7 @@ public sealed class SettingsStoreTests : IDisposable
 
         var settings = new SettingsStore(SettingsPath).Load();
 
-        Assert.Equal("Pause", settings.Hotkeys.ConvertLastWord);
+        Assert.Equal(D.ConvertLastWord, settings.Hotkeys.ConvertLastWord);
         Assert.Equal("-_", settings.ExtraWordChars);
         Assert.Equal(["a.exe"], settings.ExcludedPrograms);
         Assert.Equal("None", settings.LogLevel);
@@ -132,7 +133,7 @@ public sealed class SettingsStoreTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
         File.WriteAllText(SettingsPath, """{ "hotkeys": { "convertSelection": null } }""");
 
-        Assert.Equal("Shift+Pause", new SettingsStore(SettingsPath).Load().Hotkeys.ConvertSelection);
+        Assert.Equal(D.ConvertSelection, new SettingsStore(SettingsPath).Load().Hotkeys.ConvertSelection);
     }
 
     [Fact]
@@ -141,6 +142,23 @@ public sealed class SettingsStoreTests : IDisposable
         var store = new SettingsStore(SettingsPath);
         store.Save(store.Load());
 
-        Assert.Contains("\"Shift+Pause\"", File.ReadAllText(SettingsPath));
+        Assert.Contains($"\"{D.ConvertSelection}\"", File.ReadAllText(SettingsPath));
+    }
+
+    public static TheoryData<string> AllDefaultHotkeys()
+    {
+        var data = new TheoryData<string>();
+        foreach (var d in new[] { PlatformDefaults.Windows, PlatformDefaults.Mac })
+        foreach (var hotkey in new[] { d.ConvertLastWord, d.ConvertSelection, d.ConvertAllTyped, d.ToggleEnabled })
+            data.Add(hotkey);
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(AllDefaultHotkeys))]
+    public void Default_hotkeys_parse_and_do_not_block_typing(string text)
+    {
+        Assert.True(Input.Hotkey.TryParse(text, out var hotkey));
+        Assert.False(hotkey.BlocksTyping);
     }
 }

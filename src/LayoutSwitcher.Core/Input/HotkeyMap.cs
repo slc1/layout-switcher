@@ -1,10 +1,17 @@
 using LayoutSwitcher.Core.Config;
-using LayoutSwitcher.Core.Input;
 
-namespace LayoutSwitcher.App.Input;
+namespace LayoutSwitcher.Core.Input;
+
+public enum HotkeyAction : byte
+{
+    ConvertLastWord,
+    ConvertSelection,
+    ConvertAllTyped,
+    ToggleEnabled,
+}
 
 /// <summary>Immutable; the hook reads it while the UI thread swaps in a new one.</summary>
-internal sealed class HotkeyMap
+public sealed class HotkeyMap
 {
     public static readonly HotkeyMap Empty = new([]);
 

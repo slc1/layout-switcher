@@ -12,8 +12,11 @@ public sealed class Settings
     /// <summary>Chars that join two letters into one word, besides apostrophes.</summary>
     public string ExtraWordChars { get; set; } = "-_";
 
-    /// <summary>Exe file names, or full paths, where the app does nothing.</summary>
-    public List<string> ExcludedPrograms { get; set; } = ["mstsc.exe"];
+    /// <summary>
+    /// Where the app does nothing. Windows: exe file names or full paths. macOS: bundle ids, app or executable
+    /// names (<c>Safari.app</c>, <c>Safari</c>) or full paths.
+    /// </summary>
+    public List<string> ExcludedPrograms { get; set; } = [.. PlatformDefaults.Current.ExcludedPrograms];
 
     public string LogLevel { get; set; } = "None";
 
@@ -24,8 +27,27 @@ public sealed class Settings
 
 public sealed class HotkeySettings
 {
-    public string ConvertLastWord { get; set; } = "Pause";
-    public string ConvertSelection { get; set; } = "Shift+Pause";
-    public string ConvertAllTyped { get; set; } = "Ctrl+Pause";
-    public string ToggleEnabled { get; set; } = "Win+F8";
+    public string ConvertLastWord { get; set; } = PlatformDefaults.Current.ConvertLastWord;
+    public string ConvertSelection { get; set; } = PlatformDefaults.Current.ConvertSelection;
+    public string ConvertAllTyped { get; set; } = PlatformDefaults.Current.ConvertAllTyped;
+    public string ToggleEnabled { get; set; } = PlatformDefaults.Current.ToggleEnabled;
+}
+
+/// <summary>
+/// Defaults that differ by OS. Macs have no Pause key, and Ctrl+Space / Ctrl+Option+Space already switch
+/// input sources there, so the Mac hotkeys use Ctrl+Option with a letter.
+/// </summary>
+public sealed record PlatformDefaults(
+    string ConvertLastWord,
+    string ConvertSelection,
+    string ConvertAllTyped,
+    string ToggleEnabled,
+    IReadOnlyList<string> ExcludedPrograms)
+{
+    public static readonly PlatformDefaults Windows = new("Pause", "Shift+Pause", "Ctrl+Pause", "Win+F8", ["mstsc.exe"]);
+
+    public static readonly PlatformDefaults Mac = new(
+        "Ctrl+Option+W", "Ctrl+Option+S", "Ctrl+Option+A", "Ctrl+Option+T", ["com.microsoft.rdc.macos"]);
+
+    public static PlatformDefaults Current => OperatingSystem.IsMacOS() ? Mac : Windows;
 }

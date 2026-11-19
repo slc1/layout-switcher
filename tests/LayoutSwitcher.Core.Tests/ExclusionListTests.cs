@@ -10,6 +10,11 @@ public class ExclusionListTests
     [InlineData("c:/games/x.exe", @"C:\Games\x.exe", true)]
     [InlineData("c:/games/x.exe", @"D:\Games\x.exe", false)]
     [InlineData(@"C:\Games\x.exe", @"c:/games/X.EXE", true)]
+    [InlineData("Safari.app", "/Applications/Safari.app", true)]
+    [InlineData("/Applications/Safari.app", "/applications/safari.app", true)]
+    [InlineData("com.apple.Safari", "com.apple.Safari", true)]
+    [InlineData("Safari", "/Applications/Safari.app/Contents/MacOS/Safari", true)]
+    [InlineData("Safari", "/Applications/Safari.app", false)]
     public void Matches_by_name_or_full_path(string entry, string exePath, bool expected)
     {
         Assert.Equal(expected, new ExclusionList([entry]).IsExcluded(exePath));

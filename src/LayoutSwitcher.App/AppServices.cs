@@ -3,6 +3,7 @@ using LayoutSwitcher.App.Engine;
 using LayoutSwitcher.App.Input;
 using LayoutSwitcher.App.Layouts;
 using LayoutSwitcher.Core.Config;
+using LayoutSwitcher.Core.Input;
 
 namespace LayoutSwitcher.App;
 

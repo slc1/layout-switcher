@@ -1,6 +1,6 @@
 # LayoutSwitcher — Design
 
-A Windows tray utility that fixes text typed in the wrong keyboard layout (UA ↔ EN) on a hotkey.
+A Windows tray utility (and a macOS menu bar app — see §13) that fixes text typed in the wrong keyboard layout (UA ↔ EN) on a hotkey.
 Inspired by [SimpleSwitcher](https://github.com/Aegel5/SimpleSwitcher); a from-scratch C# implementation
 with a deliberately smaller scope.
 
@@ -256,3 +256,45 @@ for both directions incl. Shift and CapsLock, undo state, buffer reset rules.
 Notepad, Word, Chrome (address bar + text field), VS Code, Telegram Desktop, Windows Terminal,
 an elevated Notepad (expect the notification), an excluded program (expect no action).
 Also: user clipboard contains an image/file before F2 → identical after F2.
+
+## 13. macOS
+
+`src/LayoutSwitcher.Mac` (`net10.0-macos`, AppKit) is the macOS counterpart of `LayoutSwitcher.App`. It reuses
+all of Core; only the OS layer is new. Solution: `LayoutSwitcher.Mac.slnx` (the Windows `LayoutSwitcher.slnx`
+stays buildable without the macOS workload).
+
+| Concern | Windows | macOS |
+|---|---|---|
+| Key capture | `WH_KEYBOARD_LL` + `WH_MOUSE_LL` | Quartz event tap (`CGEventTapCreate`, session tap, head insert) on its own `CFRunLoop` thread |
+| Permission | none (UIPI blocks elevated windows) | Accessibility; until granted the menu bar shows `!` and the app retries every 300 ms |
+| Own-input tag | `KEYBDINPUT.dwExtraInfo` | `kCGEventSourceUserData` field |
+| Typing | `SendInput` with `KEYEVENTF_UNICODE` | `CGEventPost` with `CGEventKeyboardSetUnicodeString`, private event source, explicit flags |
+| Held modifiers | synthetic key-ups | explicit event flags, plus a wait (≤ 600 ms) for the user to release them |
+| Layouts | `GetKeyboardLayoutList`, `ToUnicodeEx` | Text Input Sources (`TISCreateInputSourceList`), `UCKeyTranslate` |
+| Layout id | language id of the HKL | primary language of the input source (`uk`, `en*`) |
+| Switch layout | `WM_INPUTLANGCHANGEREQUEST` to the focused window | `TISSelectInputSource` (macOS input sources are global) |
+| Clipboard | `Ctrl+C` / `Ctrl+V`, sequence number | `Cmd+C` / `Cmd+V`, `NSPasteboard.changeCount`; writes marked `org.nspasteboard.TransientType` |
+| Focus change | `EVENT_SYSTEM_FOREGROUND` | `NSWorkspaceDidActivateApplicationNotification` |
+| "Cannot work here" (`!`) | elevated foreground window | secure input on (`IsSecureEventInputEnabled`), or no Accessibility permission |
+| Exclusions | exe name or path | bundle id, `Name.app`, executable name or full path |
+| Autostart | `HKCU\…\Run` | `~/Library/LaunchAgents/com.slc.layoutswitcher.plist` running `open -a <bundle>` |
+| Settings / logs | `%AppData%`, `%LocalAppData%` | `~/Library/Application Support/LayoutSwitcher`, `~/Library/Logs/LayoutSwitcher` |
+
+Details:
+
+- **Key codes.** `KeyStroke.ScanCode` holds the Mac virtual key code. `MacKeys` maps key codes to Win32 VKs so
+  that Core's `KeyClassifier`, `Hotkey` and `HotkeyMap` work unchanged; letters and digits follow ANSI labels.
+  Keypad keys (`kCGEventFlagMaskNumericPad`) reset the buffer, like extended keys on Windows.
+- **Hotkey names.** `Hotkey` parses `Option`/`Cmd` as aliases of `Alt`/`Win`; the Mac UI shows them with
+  `ToMacString()`. Defaults come from `PlatformDefaults.Mac`: `Ctrl+Option+W/S/A/T`, because Macs have no Pause
+  key and `Ctrl+Space` / `Ctrl+Option+Space` already switch input sources.
+- **Main thread.** macOS asserts that TIS calls run on the main thread. `LayoutService` caches the current input
+  source (refreshed on `TISNotifySelectedKeyboardInputSourceChanged` and every 300 ms); the engine reads the cache
+  and marshals `SetLayout` to the main thread. Pasteboard access is marshalled too.
+- **Dead keys.** `UCKeyTranslate` is called without `kUCKeyTranslateNoDeadKeysMask`; a key that leaves a dead-key
+  state is left out of the table, as `ToUnicodeEx` returning −1 is on Windows.
+- **Build.** `ValidateXcodeVersion=false` and the dynamic registrar let any recent Xcode build the app. Release
+  trims only framework assemblies; settings use source-generated JSON, so they survive trimming.
+- **Self-test.** `LayoutSwitcher.app/Contents/MacOS/LayoutSwitcher --self-test report.txt` checks the tables and
+  the settings round trip without UI or permissions. There is no `--e2e` mode on macOS yet: it would need the
+  Accessibility permission.

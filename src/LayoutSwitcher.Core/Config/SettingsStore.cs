@@ -1,17 +1,22 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace LayoutSwitcher.Core.Config;
 
+/// <summary>Source-generated, so trimmed builds (the macOS app) keep working.</summary>
+[JsonSerializable(typeof(Settings))]
+internal sealed partial class SettingsJsonContext : JsonSerializerContext;
+
 public sealed class SettingsStore(string path)
 {
-    private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
+    private static readonly SettingsJsonContext Json = new(new JsonSerializerOptions(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, // keep '+' in hotkeys readable
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
-    };
+    });
 
     /// <summary>
     /// Never throws. Missing or unreadable file → defaults. Malformed file → renamed to <c>.bad</c>
@@ -25,7 +30,7 @@ public sealed class SettingsStore(string path)
         try
         {
             using var stream = File.OpenRead(path);
-            return WithDefaultsForNulls(JsonSerializer.Deserialize<Settings>(stream, Options));
+            return WithDefaultsForNulls(JsonSerializer.Deserialize(stream, Json.Settings));
         }
         catch (JsonException)
         {
@@ -67,7 +72,7 @@ public sealed class SettingsStore(string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         var tmp = path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(settings, Options));
+        File.WriteAllText(tmp, JsonSerializer.Serialize(settings, Json.Settings));
         File.Move(tmp, path, overwrite: true);
     }
 }

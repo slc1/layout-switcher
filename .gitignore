@@ -4,3 +4,4 @@ obj/
 .idea/
 *.user
 .superpowers/
+.DS_Store

@@ -14,6 +14,10 @@ public readonly record struct Hotkey(Modifiers Modifiers, ushort Vk)
     private static readonly (string Name, Modifiers Flag)[] ModifierNames =
         [("Ctrl", Modifiers.Ctrl), ("Alt", Modifiers.Alt), ("Shift", Modifiers.Shift), ("Win", Modifiers.Win)];
 
+    // Mac keyboards label Alt "Option" and Win "Command". Both spellings parse on either OS.
+    private static readonly (string Name, Modifiers Flag)[] MacModifierNames =
+        [("Ctrl", Modifiers.Ctrl), ("Option", Modifiers.Alt), ("Shift", Modifiers.Shift), ("Cmd", Modifiers.Win)];
+
     /// <summary>Parses <c>Ctrl+Shift+Pause</c>-style text: any modifiers, then exactly one key, last.</summary>
     public static bool TryParse(string text, out Hotkey hotkey)
     {
@@ -23,7 +27,8 @@ public readonly record struct Hotkey(Modifiers Modifiers, ushort Vk)
 
         foreach (var part in parts[..^1])
         {
-            var match = ModifierNames.FirstOrDefault(m => m.Name.Equals(part, StringComparison.OrdinalIgnoreCase));
+            var match = ModifierNames.Concat(MacModifierNames)
+                .FirstOrDefault(m => m.Name.Equals(part, StringComparison.OrdinalIgnoreCase));
             if (match.Name is null)
                 return false;
             modifiers |= match.Flag;
@@ -45,10 +50,15 @@ public readonly record struct Hotkey(Modifiers Modifiers, ushort Vk)
     public static ushort NormalizeVk(ushort vk, ushort scanCode) =>
         vk == VirtualKeys.Cancel && scanCode == 0x46 ? VirtualKeys.Pause : vk;
 
-    public override string ToString()
+    public override string ToString() => Format(ModifierNames);
+
+    /// <summary><c>Ctrl+Option+Shift+Cmd+W</c>: the modifier names printed on Mac keyboards.</summary>
+    public string ToMacString() => Format(MacModifierNames);
+
+    private string Format((string Name, Modifiers Flag)[] names)
     {
         var held = Modifiers;
-        var mods = ModifierNames.Where(m => held.HasFlag(m.Flag)).Select(m => m.Name);
+        var mods = names.Where(m => held.HasFlag(m.Flag)).Select(m => m.Name);
         return string.Join('+', mods.Append(KeyName(Vk)));
     }
 
