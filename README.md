@@ -48,19 +48,43 @@ Settings are stored in `%AppData%\LayoutSwitcher\settings.json`. Logging is off 
 1. Download `LayoutSwitcher-<version>-macos.zip` from
    [Releases](https://github.com/slc1/layout-switcher/releases/latest). It runs on both Apple silicon and Intel Macs.
 2. Unzip it and move `LayoutSwitcher.app` to `/Applications`.
-3. The app is not notarized, so macOS blocks the first start. Open it once, then click **Open Anyway** in
-   System Settings → Privacy & Security. Or run `xattr -dr com.apple.quarantine /Applications/LayoutSwitcher.app`.
+3. Allow the first start. The app is not notarized, so macOS says it cannot check it for malware and offers no
+   Open button. Close that dialog, open System Settings → Privacy & Security, scroll down to Security and click
+   **Open Anyway** next to LayoutSwitcher. The button shows only for a short while after a blocked start. If it is
+   not there, run this in Terminal instead:
+
+   ```
+   xattr -dr com.apple.quarantine /Applications/LayoutSwitcher.app
+   ```
+4. Allow Accessibility. On first start macOS asks to let LayoutSwitcher control the computer. Until you allow it,
+   the menu bar shows `!`. Click `!` → **Allow in Accessibility settings…** and turn LayoutSwitcher on in
+   System Settings → Privacy & Security → **Accessibility**. No restart is needed: the icon changes to `EN` or `UA`
+   within a second.
 
 You need macOS 13 or later with the Ukrainian and an English input source (ABC, U.S. or British) in System
 Settings → Keyboard → Input Sources.
 
-On first start macOS asks to allow LayoutSwitcher in System Settings → Privacy & Security → **Accessibility**.
-Until you do, the menu bar shows `!`; the app starts working as soon as access is granted. Each new version, or
-your own build, counts as a new app, so remove the old entry from the list and allow it again.
-
 "Start at login" is on by default (a LaunchAgent in `~/Library/LaunchAgents`). Settings are stored in
 `~/Library/Application Support/LayoutSwitcher/settings.json`, logs go to `~/Library/Logs/LayoutSwitcher`.
 Excluded apps are listed by app name (`Safari.app`), bundle id (`com.apple.Safari`) or full path.
+
+### If the menu bar still shows `!`
+
+Hover over the icon to see why.
+
+- **"needs the Accessibility permission"**, although LayoutSwitcher is on in the Accessibility list: the entry
+  belongs to another copy of the app. macOS ties the permission to one exact build, so this happens after every
+  update, after building it yourself, or when the app first ran from Downloads before it was moved.
+  1. Select LayoutSwitcher in the Accessibility list and remove it with **−**.
+  2. Quit the app: `!` → **Quit LayoutSwitcher**.
+  3. Start `/Applications/LayoutSwitcher.app` again and allow access when asked.
+- **"paused while a password field or secure input is active"**: a password field, or an app such as a password
+  manager or Terminal with Secure Keyboard Entry, has secure input on, and macOS hides keys from every app.
+  Leave the password field or turn the option off. `ioreg -l -w 0 | grep SecureInput` shows the process id
+  that holds it.
+
+If it still does not work, set `"logLevel": "Info"` in `settings.json`, restart the app and look in
+`~/Library/Logs/LayoutSwitcher`. The log never contains what you type.
 
 ## Limitations
 
